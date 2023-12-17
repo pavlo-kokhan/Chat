@@ -1,7 +1,13 @@
 ﻿// server.cpp
 #include <iostream>
+#include <tchar.h>
 #include <string>
-#include <winsock.h>
+#include <WinSock2.h>
+#include <ws2tcpip.h>
+#include <Windows.h>
+
+#define BUFFER_SIZE 1024
+#define PORT 55555
 
 #pragma comment(lib, "ws2_32.lib") // linking program with ws2_32.lib library
 
@@ -15,29 +21,35 @@ int main()
         std::cerr << "Failed to initialize winsock\n";
         return 1;
     }
+    
+    std::cout << "The winsock dll is found\n";
+    std::cout << "Status: " << wsaData.szSystemStatus << "\n";
 
     // Creating a socket
-    SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (serverSocket == INVALID_SOCKET)
     {
         cerrMessageAndCleanup("Error creating socket", WSAGetLastError(), serverSocket);
         return 1;
     }
 
-    std::cout << "Client socket is connected\n";
+    std::cout << "Server socket is created\n";
 
     // sockaddr_in structure filling
     sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
+    InetPton(AF_INET, _T("127.0.0.1"), &serverAddr.sin_addr.s_addr);
     serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons(12345); // Select port
+    serverAddr.sin_port = htons(PORT); // Select port
 
     // Socket binding
-    if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
+    if (bind(serverSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
     {
         cerrMessageAndCleanup("Bind has failed", WSAGetLastError(), serverSocket);
         return 1;
     }
+
+    std::cout << "Socket binding is successful\n";
 
     // Listening on a socket
     if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR)
@@ -46,38 +58,35 @@ int main()
         return 1;
     }
     
-    std::cout << "Server listening on port 12345...\n";
+    std::cout << "Server listening on the port " << PORT << "\n";
 
     // Waiting for client connection
-    SOCKET clientSocket = accept(serverSocket, NULL, NULL);
-    if (clientSocket == INVALID_SOCKET)
+    SOCKET acceptSocket = accept(serverSocket, NULL, NULL);
+    if (acceptSocket == INVALID_SOCKET)
     {
         cerrMessageAndCleanup("Accept failed", WSAGetLastError(), serverSocket);
         return 1;
     }
 
-    std::cout << "Client is connected\n";
+    std::cout << "Client accepted connection\n";
 
     // Data exchange
-    char buffer[1024];
-    int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
-    if (bytesReceived == SOCKET_ERROR)
+    char buffer[BUFFER_SIZE];
+    std::cin.getline(buffer, sizeof(buffer));
+    while(true)
     {
-        std::cerr << "Receive failed\n";
-        std::cerr << "Error: " << WSAGetLastError() << "\n";
+        int bytesReceived = recv(acceptSocket, buffer, sizeof(buffer), 0);
+        
+        if(bytesReceived > 0)
+        {
+            std::cout << "Client: " << buffer << "\n";
+        }
+        
+        std::cout << "Server: ";
+        std::cin.getline(buffer, sizeof(buffer));
+        
+        bytesReceived = send(acceptSocket, buffer, sizeof(buffer), 0);
     }
-    else
-    {
-        buffer[bytesReceived] = '\0';
-        std::cout << "Received message from client: " << buffer << "\n";
-    }
-
-    // Cleaning up
-    closesocket(clientSocket);
-    closesocket(serverSocket);
-    WSACleanup();
-    
-    return 0;
 }
 
 void cerrMessageAndCleanup(const std::string& message, const int& error, const SOCKET& socket)

@@ -1,6 +1,13 @@
 ﻿// client.cpp
 #include <iostream>
-#include <winsock.h>
+#include <tchar.h>
+#include <string>
+#include <WinSock2.h>
+#include <ws2tcpip.h>
+#include <Windows.h>
+
+#define BUFFER_SIZE 1024
+#define PORT 55555
 
 #pragma comment(lib, "ws2_32.lib") // linking program with ws2_32.lib library
 
@@ -15,19 +22,24 @@ int main()
         return 1;
     }
 
+    std::cout << "The winsock dll is found\n";
+    std::cout << "Status: " << wsaData.szSystemStatus << "\n";
+
     // Creating a socket
-    SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+    SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (clientSocket == INVALID_SOCKET)
     {
         cerrMessageAndCleanup("Error creating socket", WSAGetLastError(), clientSocket);
         return 1;
     }
 
+    std::cout << "Client socket is created\n";
+
     // sockaddr_in structure filling
     sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1"); // IP address of the server
-    serverAddr.sin_port = htons(12345); // Port of the server
+    InetPton(AF_INET, _T("127.0.0.1"), &serverAddr.sin_addr.s_addr);
+    serverAddr.sin_port = htons(PORT); // Port of the server
 
     // Connecting to the server
     if (connect(clientSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
@@ -39,22 +51,21 @@ int main()
     std::cout << "Connected to the server\n";
 
     // Data exchange
-    std::string message = "Hello from the client!";
-    int bytesSent = send(clientSocket, message.c_str(), message.size(), 0);
-    if (bytesSent == SOCKET_ERROR)
+    char buffer[BUFFER_SIZE];
+    while (true)
     {
-        cerrMessageAndCleanup("Sending failed", WSAGetLastError(), clientSocket);
-    }
-    else
-    {
-        std::cout << "Message is sent to the server\n";
-    }
+        std::cout << "Client: ";
+        std::cin.getline(buffer, sizeof(buffer));
 
-    // Cleaning up
-    closesocket(clientSocket);
-    WSACleanup();
+        send(clientSocket, buffer, sizeof(buffer), 0);
 
-    return 0;
+        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+
+        if (bytesReceived > 0)
+        {
+            std::cout << "Server: " << buffer << "\n";
+        }
+    }
 }
 
 void cerrMessageAndCleanup(const std::string& message, int error, const SOCKET& socket)
