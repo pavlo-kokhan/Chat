@@ -1,8 +1,12 @@
 ﻿// client.cpp
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <iostream>
 #include <fstream>
 #include <tchar.h>
 #include <string>
+#include <chrono>
+#include <ctime>
 #include <WinSock2.h>
 #include <ws2tcpip.h>
 #include <Windows.h>
@@ -13,6 +17,8 @@
 #pragma comment(lib, "ws2_32.lib") // Для отримання доступу до необхідних функцій
 
 void cerrMessageAndCleanup(const std::string& message, int error, const SOCKET& socket);
+
+std::string getCurrentDateTime();
 
 int main()
 {
@@ -73,8 +79,8 @@ int main()
             WSACleanup();
             break;
         }
-
-        logFile << "Client: " << buffer << "\n";
+        
+        logFile << "Client: " << buffer << " " << getCurrentDateTime() << "\n";
 
         int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
 
@@ -90,7 +96,7 @@ int main()
             
             std::cout << "Server: " << buffer << "\n";
             
-            logFile << "Server: " << buffer << "\n";
+            logFile << "Server: " << buffer << " " << getCurrentDateTime() << "\n";
         }
         else
         {
@@ -115,4 +121,14 @@ void cerrMessageAndCleanup(const std::string& message, int error, const SOCKET& 
     }
     
     WSACleanup();
+}
+
+std::string getCurrentDateTime()
+{
+    std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::string result(30, '\0');
+    
+    std::strftime(&result[0], result.size(), "%Y-%m-%d %H:%M:%S", std::localtime(&now));
+    
+    return result;
 }
